@@ -3,11 +3,10 @@ import HelloApi from "./components/HelloApi.vue";
 </script>
 
 <template>
-  <div>
+  <header>
     <h1>AI 英語學習平台 - Hello 前端！</h1>
-    <HelloApi />
-    <!-- 這一行很重要！沒有它畫面不會顯示按鈕 -->
-  </div>
+  </header>
+  <router-view />
 </template>
 
 <style scoped>

@@ -3,6 +3,13 @@
     <button @click="callApi">點我測試後端</button>
     <p>{{ message }}</p>
   </div>
+
+  <div>
+    <h1>Hello Api 頁面</h1>
+    <router-link to="/AuthPage">
+      <button>前往註冊頁面</button>
+    </router-link>
+  </div>
 </template>
 
 <script setup>

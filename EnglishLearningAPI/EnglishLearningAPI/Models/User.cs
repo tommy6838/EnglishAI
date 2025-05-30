@@ -6,5 +6,6 @@
         public string Email { get; set; } = null!;
         public string PasswordHash { get; set; } = null!;
         public int Level { get; set; } = 0;
-    }
+		public string UserName { get; set; }
+	}
 }
