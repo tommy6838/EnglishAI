@@ -5,6 +5,7 @@ import AuthPage from "../components/AuthPage.vue";
 import TopicMenu from "../components/TopicMenu.vue";
 import TopicDetail from "../components/TopicDetail.vue";
 import ChatPage from "../components/ChatPage.vue";
+import ConversationPage from "../components/ConversationPage.vue";
 
 const routes = [
   { path: "/", component: HelloApi },
@@ -12,6 +13,7 @@ const routes = [
   { path: "/TopicMenu", component: TopicMenu },
   { path: "/topics/:id", component: TopicDetail },
   { path: "/ChatPage", component: ChatPage },
+  { path: "/ConversationPage", component: ConversationPage },
 ];
 
 const router = createRouter({
