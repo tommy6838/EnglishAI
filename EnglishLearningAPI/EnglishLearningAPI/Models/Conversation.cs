@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace EnglishLearningAPI.Models;
 
@@ -17,5 +18,5 @@ public partial class Conversation
 
     public DateTime CreatedAt { get; set; }
 
-    public virtual Topic Topic { get; set; } = null!;
+	public virtual Topic Topic { get; set; } = null!;
 }

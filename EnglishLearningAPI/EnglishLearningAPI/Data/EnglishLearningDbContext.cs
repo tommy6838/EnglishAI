@@ -34,7 +34,7 @@ public partial class EnglishLearningDbContext : DbContext
     {
         modelBuilder.Entity<Conversation>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("PK__Conversa__3214EC0733549EFA");
+            entity.HasKey(e => e.Id).HasName("PK__Conversa__3214EC070A674FCF");
 
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
             entity.Property(e => e.UserId).HasMaxLength(100);
@@ -47,7 +47,7 @@ public partial class EnglishLearningDbContext : DbContext
 
         modelBuilder.Entity<FavoriteWord>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("PK__Favorite__3214EC07B5C365DA");
+            entity.HasKey(e => e.Id).HasName("PK__Favorite__3214EC075419C709");
 
             entity.Property(e => e.FavoritedAt).HasDefaultValueSql("(getdate())");
             entity.Property(e => e.UserId).HasMaxLength(100);
@@ -56,7 +56,7 @@ public partial class EnglishLearningDbContext : DbContext
 
         modelBuilder.Entity<Topic>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("PK__Topics__3214EC070E0D9C78");
+            entity.HasKey(e => e.Id).HasName("PK__Topics__3214EC0759291B42");
 
             entity.Property(e => e.Description).HasMaxLength(2047);
             entity.Property(e => e.Name).HasMaxLength(100);
@@ -64,18 +64,17 @@ public partial class EnglishLearningDbContext : DbContext
 
         modelBuilder.Entity<User>(entity =>
         {
-            entity.HasKey(e => e.SerialNo).HasName("PK__Users__5E5A535F24A03732");
-
-            entity.Property(e => e.Email).HasMaxLength(300);
             entity.Property(e => e.Id).HasMaxLength(100);
+            entity.Property(e => e.Email).HasMaxLength(300);
             entity.Property(e => e.PasswordHash).HasMaxLength(500);
             entity.Property(e => e.RegisteredAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.SerialNo).ValueGeneratedOnAdd();
             entity.Property(e => e.UserName).HasMaxLength(100);
         });
 
         modelBuilder.Entity<WordHistory>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("PK__WordHist__3214EC07FCD8D787");
+            entity.HasKey(e => e.Id).HasName("PK__WordHist__3214EC0759D0C90F");
 
             entity.ToTable("WordHistory");
 
