@@ -16,9 +16,15 @@ public partial class EnglishLearningDbContext : DbContext
     {
     }
 
+    public virtual DbSet<Conversation> Conversations { get; set; }
+
+    public virtual DbSet<FavoriteWord> FavoriteWords { get; set; }
+
     public virtual DbSet<Topic> Topics { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
+
+    public virtual DbSet<WordHistory> WordHistories { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
@@ -26,9 +32,31 @@ public partial class EnglishLearningDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Conversation>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__Conversa__3214EC0733549EFA");
+
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.UserId).HasMaxLength(100);
+
+            entity.HasOne(d => d.Topic).WithMany(p => p.Conversations)
+                .HasForeignKey(d => d.TopicId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Conversations_Topics");
+        });
+
+        modelBuilder.Entity<FavoriteWord>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__Favorite__3214EC07B5C365DA");
+
+            entity.Property(e => e.FavoritedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.UserId).HasMaxLength(100);
+            entity.Property(e => e.Word).HasMaxLength(100);
+        });
+
         modelBuilder.Entity<Topic>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("PK__Topics__3214EC075F1BBBA7");
+            entity.HasKey(e => e.Id).HasName("PK__Topics__3214EC070E0D9C78");
 
             entity.Property(e => e.Description).HasMaxLength(2047);
             entity.Property(e => e.Name).HasMaxLength(100);
@@ -36,12 +64,26 @@ public partial class EnglishLearningDbContext : DbContext
 
         modelBuilder.Entity<User>(entity =>
         {
-            entity.HasKey(e => e.Id).HasName("PK__Users__3214EC07903607F0");
+            entity.HasKey(e => e.SerialNo).HasName("PK__Users__5E5A535F24A03732");
 
             entity.Property(e => e.Email).HasMaxLength(300);
-            entity.Property(e => e.Level).HasDefaultValue(0);
+            entity.Property(e => e.Id).HasMaxLength(100);
             entity.Property(e => e.PasswordHash).HasMaxLength(500);
+            entity.Property(e => e.RegisteredAt).HasDefaultValueSql("(getdate())");
             entity.Property(e => e.UserName).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<WordHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__WordHist__3214EC07FCD8D787");
+
+            entity.ToTable("WordHistory");
+
+            entity.Property(e => e.ClickCount).HasDefaultValue(1);
+            entity.Property(e => e.FirstViewedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.LastViewedAt).HasDefaultValueSql("(getdate())");
+            entity.Property(e => e.UserId).HasMaxLength(100);
+            entity.Property(e => e.Word).HasMaxLength(100);
         });
 
         OnModelCreatingPartial(modelBuilder);

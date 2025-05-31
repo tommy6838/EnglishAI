@@ -5,7 +5,9 @@ namespace EnglishLearningAPI.Models;
 
 public partial class User
 {
-    public int Id { get; set; }
+    public int SerialNo { get; set; }
+
+    public string Id { get; set; } = null!;
 
     public string Email { get; set; } = null!;
 
@@ -14,4 +16,6 @@ public partial class User
     public int? Level { get; set; }
 
     public string? UserName { get; set; }
+
+    public DateTime? RegisteredAt { get; set; }
 }

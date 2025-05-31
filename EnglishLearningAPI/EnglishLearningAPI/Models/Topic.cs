@@ -10,4 +10,6 @@ public partial class Topic
     public string Name { get; set; } = null!;
 
     public string? Description { get; set; }
+
+    public virtual ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
 }
