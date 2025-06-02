@@ -36,6 +36,12 @@
         <p class="text-sm text-gray-700 mb-2">{{ wordData.translation }}</p>
         <p class="text-sm text-gray-500 italic mb-4">
           📄 {{ wordData.example }}
+          <button
+            @click="speak(wordData.example)"
+            class="ml-2 text-blue-500 hover:text-blue-700"
+          >
+            🗣️
+          </button>
         </p>
 
         <button
@@ -54,13 +60,14 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted, onUnmounted } from "vue";
+import { ref, watch, computed, onUnmounted, nextTick } from "vue";
 import axios from "axios";
 
 const props = defineProps({
   word: String,
   position: Object,
   visible: Boolean,
+  voiceUri: String,
 });
 const emit = defineEmits(["close"]);
 
@@ -112,7 +119,7 @@ const dictionary = {
 const wordData = ref({});
 watch(
   () => props.word,
-  () => {
+  async () => {
     wordData.value = dictionary[props.word.toLowerCase()] || {
       word: props.word,
       pos: "unknown",
@@ -120,6 +127,8 @@ watch(
       example: "No example found.",
       ipa: "",
     };
+    await nextTick();
+    speak(wordData.value.word);
   },
   { immediate: true }
 );
@@ -140,7 +149,10 @@ function close() {
 
 function speak(text) {
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-US";
+  const voice = speechSynthesis
+    .getVoices()
+    .find((v) => v.voiceURI === props.voiceUri);
+  if (voice) utterance.voice = voice;
   speechSynthesis.speak(utterance);
 }
 
@@ -154,7 +166,6 @@ async function addToFavorite(word) {
 </script>
 
 <style scoped>
-/* 防止滑動過程中選取文字 */
 .cursor-move {
   user-select: none;
 }

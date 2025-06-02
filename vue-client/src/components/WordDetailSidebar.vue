@@ -1,11 +1,8 @@
 <template>
-  <div v-if="visible" class="fixed inset-0 z-40">
-    <!-- 模糊背景（暫時註解） -->
-    <!-- <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" @click.self="close"></div> -->
-
+  <div v-if="visible">
     <!-- 右側滑出面板 -->
     <div
-      class="absolute right-0 top-0 h-full w-80 bg-white shadow-lg p-4 flex flex-col"
+      class="fixed right-0 top-0 h-full w-80 bg-white shadow-lg p-4 flex flex-col z-40"
     >
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-bold text-blue-600">🔤 {{ wordData.word }}</h2>
@@ -28,6 +25,12 @@
         <p class="text-sm text-gray-800 mb-2">📘 {{ wordData.translation }}</p>
         <p class="text-sm text-gray-500 italic mb-4">
           📄 {{ wordData.example }}
+          <button
+            @click="speak(wordData.example)"
+            class="ml-2 text-blue-500 hover:text-blue-700"
+          >
+            🗣️
+          </button>
         </p>
         <button
           @click.stop="addToFavorite(wordData.word)"
@@ -45,12 +48,13 @@
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
+import { ref, watch, nextTick } from "vue";
 import axios from "axios";
 
 const props = defineProps({
   word: String,
   visible: Boolean,
+  voiceUri: String,
 });
 const emit = defineEmits(["close"]);
 
@@ -74,7 +78,7 @@ const dictionary = {
 const wordData = ref({});
 watch(
   () => props.word,
-  () => {
+  async () => {
     wordData.value = dictionary[props.word?.toLowerCase()] || {
       word: props.word,
       pos: "unknown",
@@ -82,6 +86,9 @@ watch(
       example: "No example found.",
       ipa: "",
     };
+    await nextTick();
+    // 自動朗讀單字（進入時）
+    speak(wordData.value.word);
   },
   { immediate: true }
 );
@@ -92,7 +99,10 @@ function close() {
 
 function speak(text) {
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-US";
+  const voice = speechSynthesis
+    .getVoices()
+    .find((v) => v.voiceURI === props.voiceUri);
+  if (voice) utterance.voice = voice;
   speechSynthesis.speak(utterance);
 }
 

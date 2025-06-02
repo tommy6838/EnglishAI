@@ -3,13 +3,28 @@
     <div class="max-w-2xl mx-auto bg-white rounded-xl shadow p-6">
       <div class="flex justify-between items-center mb-4">
         <h1 class="text-2xl font-bold text-blue-500">Tailwind 成功載入！</h1>
-        <select
-          v-model="viewMode"
-          class="border border-gray-300 rounded px-2 py-1 text-sm"
-        >
-          <option value="tooltip">Tooltip 模式</option>
-          <option value="sidebar">Sidebar 模式</option>
-        </select>
+        <div class="flex gap-2 items-center">
+          <select
+            v-model="viewMode"
+            class="border border-gray-300 rounded px-2 py-1 text-sm"
+          >
+            <option value="tooltip">Tooltip 模式</option>
+            <option value="sidebar">Sidebar 模式</option>
+          </select>
+          <!-- 放在原本模式切換的旁邊 -->
+          <select
+            v-model="selectedVoiceURI"
+            class="border border-gray-300 rounded px-2 py-1 text-sm"
+          >
+            <option
+              v-for="voice in voices"
+              :key="voice.voiceURI"
+              :value="voice.voiceURI"
+            >
+              {{ voice.name }} ({{ voice.lang }})
+            </option>
+          </select>
+        </div>
       </div>
 
       <h2 class="text-lg font-semibold mb-4 text-gray-700">我的對話紀錄</h2>
@@ -65,6 +80,7 @@
       :word="selectedWord"
       :position="tooltipPosition"
       :visible="tooltipVisible"
+      :voice-uri="selectedVoiceURI"
       @close="closeTooltip"
     />
 
@@ -73,6 +89,7 @@
       v-if="viewMode === 'sidebar' && sidebarVisible"
       :word="selectedWord"
       :visible="sidebarVisible"
+      :voice-uri="selectedVoiceURI"
       @close="closeSidebar"
     />
   </div>
@@ -95,15 +112,33 @@ const sidebarVisible = ref(false);
 const selectedWord = ref("");
 const tooltipPosition = ref({ x: 0, y: 0 });
 const viewMode = ref(localStorage.getItem("viewMode") || "tooltip");
+const voices = ref([]); // 所有可用語音列表
+const selectedVoiceURI = ref(""); // 使用者選中的語音 URI
 
 watch(viewMode, (newVal) => {
   localStorage.setItem("viewMode", newVal);
 });
 
 onMounted(async () => {
+  // ...既有載入對話的邏輯...
   await loadConversations();
   await nextTick();
   scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight;
+
+  const voiceInit = () => {
+    voices.value = speechSynthesis.getVoices(); // 載入所有語音
+
+    if (!selectedVoiceURI.value && voices.value.length > 0) {
+      selectedVoiceURI.value =
+        voices.value.find((v) => v.lang.startsWith("en"))?.voiceURI ||
+        voices.value[0].voiceURI;
+      // 預設選英語語音（找 en 開頭）
+    }
+  };
+
+  speechSynthesis.onvoiceschanged = voiceInit; // 有些瀏覽器語音是延遲載入的
+
+  voiceInit();
 });
 
 async function loadConversations() {
