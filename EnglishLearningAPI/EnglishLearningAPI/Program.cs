@@ -4,6 +4,7 @@ using EnglishLearningAPI.Data; // 這一行依照你的DbContext所在命名空間
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using EnglishLearningAPI.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +44,7 @@ builder.Services.AddCors(options =>
 });
 //↑解決CORS問題
 
+builder.Services.AddHttpClient(); // GlosbeAPIController用，放在 AddControllers() 上面即可
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();

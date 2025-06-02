@@ -10,7 +10,11 @@
       :style="tooltipStyle"
       @mousedown="startDrag"
     >
-      <div v-if="wordData.word">
+      <div v-if="loading" class="text-center text-sm text-gray-500">
+        ⏳ 查詢中...
+      </div>
+
+      <div v-else-if="wordData.word">
         <div class="flex justify-between items-center mb-2">
           <h3 class="text-lg font-bold text-blue-600">
             🔤 {{ wordData.word }}
@@ -22,9 +26,11 @@
 
         <div class="flex items-center gap-2 mb-1">
           <span class="text-sm text-white bg-indigo-500 px-2 py-0.5 rounded">
-            {{ wordData.pos }}
+            {{ wordData.partOfSpeech }}
           </span>
-          <span class="text-sm text-gray-600 italic">/{{ wordData.ipa }}/</span>
+          <span class="text-sm text-gray-600 italic"
+            >/{{ wordData.phonetic }}/</span
+          >
           <button
             @click="speak(wordData.word)"
             class="text-blue-500 hover:text-blue-700 text-lg"
@@ -33,9 +39,17 @@
           </button>
         </div>
 
-        <p class="text-sm text-gray-700 mb-2">{{ wordData.translation }}</p>
+        <p class="text-sm text-gray-700 mb-1">
+          🌏 中文翻譯：{{ wordData.translation }}
+        </p>
+
+        <p class="text-sm text-gray-500 italic mb-1">
+          📄 {{ wordData.definition }}
+        </p>
+
         <p class="text-sm text-gray-500 italic mb-4">
-          📄 {{ wordData.example }}
+          📘 {{ wordData.example }}
+          <span v-if="wordData.exampleZh">（{{ wordData.exampleZh }}）</span>
           <button
             @click="speak(wordData.example)"
             class="ml-2 text-blue-500 hover:text-blue-700"
@@ -62,6 +76,7 @@
 <script setup>
 import { ref, watch, computed, onUnmounted, nextTick } from "vue";
 import axios from "axios";
+import DictionaryService from "../services/DictionaryService";
 
 const props = defineProps({
   word: String,
@@ -99,36 +114,26 @@ function stopDrag() {
 
 onUnmounted(() => stopDrag());
 
-const dictionary = {
-  hello: {
-    word: "hello",
-    pos: "interjection",
-    translation: "你好；哈囉",
-    example: "Hello there, Katie!",
-    ipa: "həˈlō",
-  },
-  assist: {
-    word: "assist",
-    pos: "verb",
-    translation: "協助、幫助",
-    example: "He assisted the old man across the street.",
-    ipa: "əˈsist",
-  },
-};
-
 const wordData = ref({});
+const loading = ref(false);
+
 watch(
   () => props.word,
   async () => {
-    wordData.value = dictionary[props.word.toLowerCase()] || {
-      word: props.word,
-      pos: "unknown",
-      translation: "（尚無資料）",
-      example: "No example found.",
-      ipa: "",
-    };
-    await nextTick();
-    speak(wordData.value.word);
+    if (!props.word) return;
+    loading.value = true;
+    wordData.value = {};
+    try {
+      const result = await DictionaryService.getWordData(props.word);
+      console.log("📘 最終 wordData：", result); // ←← 加這行！
+      if (result) wordData.value = result;
+    } catch (err) {
+      console.error("❌ Tooltip 取得字典資料失敗:", err);
+    } finally {
+      loading.value = false;
+      await nextTick();
+      speak(props.word);
+    }
   },
   { immediate: true }
 );

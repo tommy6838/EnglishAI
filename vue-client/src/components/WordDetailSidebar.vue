@@ -11,10 +11,14 @@
         </button>
       </div>
 
-      <div v-if="wordData.word">
+      <div v-if="loading" class="text-sm text-gray-500 text-center">
+        ⏳ 查詢中...
+      </div>
+
+      <div v-else-if="wordData.word">
         <p class="text-sm text-gray-600 italic mb-1">
-          ({{ wordData.pos }})
-          <span class="text-gray-500">/{{ wordData.ipa }}/</span>
+          ({{ wordData.partOfSpeech }})
+          <span class="text-gray-500">/{{ wordData.phonetic }}/</span>
           <button
             @click="speak(wordData.word)"
             class="ml-2 text-blue-500 hover:text-blue-700"
@@ -22,9 +26,15 @@
             🔊
           </button>
         </p>
-        <p class="text-sm text-gray-800 mb-2">📘 {{ wordData.translation }}</p>
+        <p class="text-sm text-gray-800 mb-2">
+          🌏 中文翻譯：{{ wordData.translation }}
+        </p>
+        <p class="text-sm text-gray-500 italic mb-1">
+          📄 {{ wordData.definition }}
+        </p>
         <p class="text-sm text-gray-500 italic mb-4">
-          📄 {{ wordData.example }}
+          📘 {{ wordData.example
+          }}<span v-if="wordData.exampleZh">（{{ wordData.exampleZh }}）</span>
           <button
             @click="speak(wordData.example)"
             class="ml-2 text-blue-500 hover:text-blue-700"
@@ -50,6 +60,7 @@
 <script setup>
 import { ref, watch, nextTick } from "vue";
 import axios from "axios";
+import DictionaryService from "../services/DictionaryService";
 
 const props = defineProps({
   word: String,
@@ -58,37 +69,25 @@ const props = defineProps({
 });
 const emit = defineEmits(["close"]);
 
-const dictionary = {
-  hello: {
-    word: "hello",
-    pos: "interjection",
-    translation: "你好；哈囉",
-    example: "Hello there, Katie!",
-    ipa: "həˈlō",
-  },
-  assist: {
-    word: "assist",
-    pos: "verb",
-    translation: "協助、幫助",
-    example: "He assisted the old man across the street.",
-    ipa: "əˈsist",
-  },
-};
-
 const wordData = ref({});
+const loading = ref(false);
+
 watch(
   () => props.word,
   async () => {
-    wordData.value = dictionary[props.word?.toLowerCase()] || {
-      word: props.word,
-      pos: "unknown",
-      translation: "（尚無資料）",
-      example: "No example found.",
-      ipa: "",
-    };
-    await nextTick();
-    // 自動朗讀單字（進入時）
-    speak(wordData.value.word);
+    if (!props.word) return;
+    loading.value = true;
+    wordData.value = {};
+    try {
+      const result = await DictionaryService.getWordData(props.word);
+      if (result) wordData.value = result;
+    } catch (err) {
+      console.error("❌ Sidebar 查詢失敗:", err);
+    } finally {
+      loading.value = false;
+      await nextTick();
+      speak(props.word);
+    }
   },
   { immediate: true }
 );
