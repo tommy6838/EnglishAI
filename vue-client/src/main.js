@@ -1,9 +1,9 @@
 // src/main.js
-
 import { createApp } from "vue";
 import App from "./App.vue";
 import axios from "axios";
 import router from "./router"; // ← 新增這一行
+import "./assets/tailwind.css"; // << 👈 tailwind加這行！
 
 createApp(App)
   .use(router) // ← 加這一行
