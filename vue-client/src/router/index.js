@@ -1,7 +1,9 @@
 // router/index.js
 import { createRouter, createWebHistory } from "vue-router";
 import HelloApi from "../components/HelloApi.vue";
-import AuthPage from "../components/AuthPage.vue";
+// import AuthPage from "../components/AuthPage.vue";
+import LoginPage from "../components/LoginPage.vue";
+import RegisterPage from "../components/RegisterPage.vue";
 import TopicMenu from "../components/TopicMenu.vue";
 import TopicDetail from "../components/TopicDetail.vue";
 import ChatPage from "../components/ChatPage.vue";
@@ -9,7 +11,10 @@ import ConversationPage from "../components/ConversationPage.vue";
 
 const routes = [
   { path: "/", component: HelloApi },
-  { path: "/AuthPage", component: AuthPage },
+  // { path: "/AuthPage", component: AuthPage },
+  { path: "/login", component: LoginPage },
+  { path: "/register", component: RegisterPage },
+  { path: "/", redirect: "/login" },
   { path: "/TopicMenu", component: TopicMenu },
   { path: "/topics/:id", component: TopicDetail },
   {

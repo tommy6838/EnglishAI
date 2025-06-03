@@ -1,20 +1,22 @@
 <template>
   <div class="conversation-page min-h-screen bg-gray-100 p-4">
-    <div class="max-w-2xl mx-auto bg-white rounded-xl shadow p-6">
-      <div class="flex justify-between items-center mb-4">
-        <h1 class="text-2xl font-bold text-blue-500">Tailwind 成功載入！</h1>
+    <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-6">
+      <!-- Header 區塊 -->
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-blue-600">AI 英文學習平台</h1>
         <div class="flex gap-2 items-center">
+          <!-- 模式切換 -->
           <select
             v-model="viewMode"
-            class="border border-gray-300 rounded px-2 py-1 text-sm"
+            class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring focus:border-blue-400"
           >
             <option value="tooltip">Tooltip 模式</option>
             <option value="sidebar">Sidebar 模式</option>
           </select>
-          <!-- 放在原本模式切換的旁邊 -->
+          <!-- 語音選擇 -->
           <select
             v-model="selectedVoiceURI"
-            class="border border-gray-300 rounded px-2 py-1 text-sm"
+            class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring focus:border-blue-400"
           >
             <option
               v-for="voice in voices"
@@ -29,35 +31,63 @@
 
       <h2 class="text-lg font-semibold mb-4 text-gray-700">我的對話紀錄</h2>
 
+      <!-- 對話區（修正為雙氣泡顯示） -->
       <div
         ref="scrollContainer"
         class="h-[300px] overflow-y-auto space-y-4 border border-gray-200 p-4 rounded-lg bg-gray-50"
       >
-        <div
-          v-for="c in conversations"
-          :key="c.id"
-          class="bg-white shadow-sm rounded-lg p-4 border border-gray-200"
-        >
-          <p><strong class="text-blue-600">Q:</strong> {{ c.question }}</p>
-          <p class="mt-1">
-            <strong class="text-green-600">A:</strong>
-            <span
-              class="inline-block mr-2"
-              v-for="(word, idx) in extractWords(c.answer)"
-              :key="idx"
+        <div v-for="c in conversations" :key="c.id" class="space-y-2">
+          <!-- 使用者提問氣泡 -->
+          <div class="flex justify-end">
+            <div
+              class="bg-blue-500 text-white px-4 py-2 rounded-xl max-w-[70%] shadow"
             >
+              <div class="text-xs text-blue-100 text-right mb-1">
+                {{ formatTimestamp(c.createdAt) }}
+              </div>
+              <strong class="text-blue-100">你：</strong>
+              {{ c.question }}
+            </div>
+          </div>
+
+          <!-- AI 回答氣泡 -->
+          <div class="flex justify-start">
+            <div
+              class="bg-white text-gray-800 px-4 py-2 rounded-xl max-w-[70%] shadow border border-gray-200"
+            >
+              <div class="text-xs text-gray-400 mb-1">
+                {{ formatTimestamp(c.createdAt) }}
+              </div>
+              <strong class="text-green-600">AI：</strong>
               <span
-                @click="handleWordClick(word, $event)"
-                class="text-blue-500 hover:underline cursor-pointer"
-                title="點擊查看解釋"
+                class="inline-block mr-2"
+                v-for="(word, idx) in extractWords(
+                  displayedAnswers[c.id] || ''
+                )"
+                :key="idx"
               >
-                {{ word }}
+                <span
+                  @click="handleWordClick(word, $event)"
+                  class="text-blue-500 hover:underline cursor-pointer"
+                  title="點擊查看解釋"
+                >
+                  {{ word }}
+                </span>
               </span>
-            </span>
-          </p>
+              <!-- 朗讀按鈕 -->
+              <button
+                @click="playSpeech(displayedAnswers[c.id])"
+                class="ml-2 text-blue-500 hover:text-blue-700"
+                title="朗讀此句"
+              >
+                🔊
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
+      <!-- 輸入區塊 -->
       <div class="mt-6 flex gap-2">
         <input
           v-model="newQuestion"
@@ -67,14 +97,14 @@
         />
         <button
           @click="sendQuestion"
-          class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+          class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition shadow"
         >
           送出
         </button>
       </div>
     </div>
 
-    <!-- Tooltip 卡片 -->
+    <!-- Tooltip 模式 -->
     <PopupWordTooltip
       v-if="viewMode === 'tooltip' && tooltipVisible"
       :word="selectedWord"
@@ -84,7 +114,7 @@
       @close="closeTooltip"
     />
 
-    <!-- Sidebar 面板 -->
+    <!-- Sidebar 模式 -->
     <WordDetailSidebar
       v-if="viewMode === 'sidebar' && sidebarVisible"
       :word="selectedWord"
@@ -96,25 +126,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick } from "vue";
+import { ref, onMounted, nextTick } from "vue";
 import api from "../utils/axios";
 import PopupWordTooltip from "./PopupWordTooltip.vue";
 import WordDetailSidebar from "./WordDetailSidebar.vue";
-
 import { useRouter } from "vue-router";
 
-//在 ConversationPage.vue 開頭加「token 判斷 + 防呆 redirect」
 const router = useRouter();
-
-// 🔒 如果沒登入就自動導回登入頁
 const token = localStorage.getItem("token");
 if (!token) {
   router.push("/AuthPage");
 }
 
 const conversations = ref([]);
+const displayedAnswers = ref({});
 const newQuestion = ref("");
-// const currentUserId = "d4badf61-5181-48ce-86cd-7a99ba604997";
 const currentTopicId = 1;
 const scrollContainer = ref(null);
 
@@ -123,52 +149,89 @@ const sidebarVisible = ref(false);
 const selectedWord = ref("");
 const tooltipPosition = ref({ x: 0, y: 0 });
 const viewMode = ref(localStorage.getItem("viewMode") || "tooltip");
-const voices = ref([]); // 所有可用語音列表
-const selectedVoiceURI = ref(""); // 使用者選中的語音 URI
+const voices = ref([]);
+const selectedVoiceURI = ref("");
 
-watch(viewMode, (newVal) => {
-  localStorage.setItem("viewMode", newVal);
-});
+// 提供全域朗讀函式給其他元件使用
+function playSpeech(text) {
+  if (!text) return;
+
+  // 保險載入語音
+  if (!voices.value.length) {
+    voices.value = speechSynthesis.getVoices();
+  }
+
+  const voice = voices.value.find((v) => v.voiceURI === selectedVoiceURI.value);
+  const utter = new SpeechSynthesisUtterance(text);
+  if (voice) utter.voice = voice;
+
+  // 解決 Chrome 無聲問題
+  if (speechSynthesis.speaking || speechSynthesis.pending) {
+    speechSynthesis.cancel();
+  }
+
+  setTimeout(() => {
+    speechSynthesis.speak(utter);
+  }, 100);
+}
+
+defineExpose({ playSpeech });
 
 onMounted(async () => {
-  // ...既有載入對話的邏輯...
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
+
   await loadConversations();
   await nextTick();
   scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight;
-
-  const voiceInit = () => {
-    voices.value = speechSynthesis.getVoices(); // 載入所有語音
-
-    if (!selectedVoiceURI.value && voices.value.length > 0) {
-      selectedVoiceURI.value =
-        voices.value.find((v) => v.lang.startsWith("en"))?.voiceURI ||
-        voices.value[0].voiceURI;
-      // 預設選英語語音（找 en 開頭）
-    }
-  };
-
-  speechSynthesis.onvoiceschanged = voiceInit; // 有些瀏覽器語音是延遲載入的
-
-  voiceInit();
 });
 
+function loadVoices() {
+  const loadedVoices = speechSynthesis.getVoices();
+  if (loadedVoices.length > 0) {
+    voices.value = loadedVoices;
+    if (!selectedVoiceURI.value) {
+      selectedVoiceURI.value =
+        loadedVoices.find((v) => v.lang.startsWith("en"))?.voiceURI ||
+        loadedVoices[0].voiceURI;
+    }
+  }
+}
+
+function formatTimestamp(ts) {
+  return ts ? new Date(ts).toLocaleString() : "";
+}
+
 async function loadConversations() {
-  const res = await api.get("/conversations"); // ✅ 自動從 token 判斷身分
+  const res = await api.get("/conversations");
   conversations.value = res.data;
+  for (const c of res.data) {
+    displayedAnswers.value[c.id] = "";
+    typeAnswerEffect(c.id, c.answer);
+    playSpeech(c.answer);
+  }
 }
 
 async function sendQuestion() {
   if (!newQuestion.value.trim()) return;
-
-  await api.post("/conversations", {
-    topicId: currentTopicId, // ✅ userId 不再需要前端提供
-    question: newQuestion.value,
-  });
-
-  await loadConversations();
-  newQuestion.value = "";
-  await nextTick();
-  scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight;
+  try {
+    await api.post("/conversations", {
+      TopicId: currentTopicId,
+      Question: newQuestion.value.trim(),
+    });
+    await loadConversations();
+    newQuestion.value = "";
+    await nextTick();
+    scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight;
+  } catch (err) {
+    const serverError = err.response?.data;
+    if (serverError?.errors) {
+      const messages = Object.values(serverError.errors).flat().join("\n");
+      alert("❗ 發送失敗：\n" + messages);
+    } else {
+      alert("❗ 發送失敗：" + (serverError?.title || err.message));
+    }
+  }
 }
 
 function extractWords(answer) {
@@ -179,7 +242,6 @@ function extractWords(answer) {
 
 function handleWordClick(word, event) {
   selectedWord.value = word;
-
   if (viewMode.value === "tooltip") {
     const rect = event.target.getBoundingClientRect();
     tooltipPosition.value = {
@@ -201,6 +263,13 @@ function closeSidebar() {
   sidebarVisible.value = false;
   selectedWord.value = "";
 }
-</script>
 
-<style scoped></style>
+function typeAnswerEffect(id, fullText) {
+  let i = 0;
+  const interval = setInterval(() => {
+    displayedAnswers.value[id] = fullText.slice(0, i + 1);
+    i++;
+    if (i >= fullText.length) clearInterval(interval);
+  }, 15);
+}
+</script>

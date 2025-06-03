@@ -1,36 +1,61 @@
 <script setup>
-import HelloApi from "./components/HelloApi.vue";
-
 import { useRouter } from "vue-router";
+import { ref } from "vue";
+
+// router 導向
 const router = useRouter();
 
-const logout = () => {
+// reactive 狀態：登入判斷
+const token = ref(localStorage.getItem("token"));
+
+// 登出邏輯：清除 token 並導向登入頁
+function logout() {
   localStorage.removeItem("token");
-  localStorage.removeItem("userId");
-  router.push("/AuthPage"); // 登出後導回登入頁
-};
+  token.value = null;
+  router.push("/login");
+}
 </script>
 
 <template>
-  <header>
-    <h1>AI 英語學習平台 - Hello 前端！</h1>
-    <!-- 放在畫面右上角等地方 -->
-    <button @click="logout" class="text-red-500 hover:underline">登出</button>
-  </header>
-  <router-view />
+  <div>
+    <!-- ✅ 導覽列 -->
+    <header class="bg-white shadow sticky top-0 z-50">
+      <div
+        class="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center"
+      >
+        <h1 class="text-2xl font-bold text-blue-600">AI 英文學習平台</h1>
+        <div class="space-x-4">
+          <!-- 尚未登入顯示 -->
+          <button
+            v-if="!token"
+            @click="router.push('/login')"
+            class="text-blue-600 hover:underline"
+          >
+            登入
+          </button>
+          <button
+            v-if="!token"
+            @click="router.push('/register')"
+            class="text-blue-600 hover:underline"
+          >
+            註冊
+          </button>
+
+          <!-- 已登入顯示 -->
+          <button v-else @click="logout" class="text-red-500 hover:underline">
+            登出
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 🚀 畫面主體 -->
+    <main class="p-4 max-w-5xl mx-auto">
+      <router-view />
+    </main>
+  </div>
 </template>
 
 <style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
-}
+/* 可加入一些全域樣式或背景 */
 </style>
