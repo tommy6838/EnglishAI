@@ -47,9 +47,18 @@ const login = async () => {
       loginKey: loginUsername.value, // 帳號或Email都可以
       password: loginPassword.value,
     });
-    // 儲存token
+
+    // ✅ 儲存token和使用者Id
     localStorage.setItem("token", res.data.token);
+    localStorage.setItem("userId", res.data.id); // ← 注意是 res.data.id
+
     message.value = "登入成功";
+
+    // ✅ 如果有 router，可以這樣導頁
+    // router.push("/conversation");
+
+    // ✅ 如果沒有 router，可以用這樣：
+    // window.location.href = "/conversation";
   } catch (err) {
     message.value = err.response?.data || "登入失敗";
   }

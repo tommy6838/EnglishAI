@@ -12,13 +12,32 @@ const routes = [
   { path: "/AuthPage", component: AuthPage },
   { path: "/TopicMenu", component: TopicMenu },
   { path: "/topics/:id", component: TopicDetail },
-  { path: "/ChatPage", component: ChatPage },
-  { path: "/ConversationPage", component: ConversationPage },
+  {
+    path: "/ChatPage",
+    component: ChatPage,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/ConversationPage",
+    component: ConversationPage,
+    meta: { requiresAuth: true },
+  },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+// ✅ 全域守衛：限制未登入用戶進入特定頁面
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem("token");
+
+  if (to.meta.requiresAuth && !token) {
+    next("/AuthPage"); // 導向登入頁
+  } else {
+    next(); // 放行
+  }
 });
 
 export default router;

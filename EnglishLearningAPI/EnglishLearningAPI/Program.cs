@@ -18,7 +18,7 @@ builder.Services.Configure<OpenAISettings>(
 
 
 // 加入JWT認證服務（這段公版）↓↓↓↓
-var jwtKey = builder.Configuration["JwtSettings:SecretKey"];
+var jwtKey = builder.Configuration["JwtSettings:SecretKey"]; //  正確抓設定值
 
 builder.Services.AddAuthentication("Bearer")
 	.AddJwtBearer("Bearer", options =>
@@ -30,9 +30,10 @@ builder.Services.AddAuthentication("Bearer")
 			ValidateLifetime = true,
 			ValidateIssuerSigningKey = true,
 			IssuerSigningKey = new SymmetricSecurityKey(
-				Encoding.UTF8.GetBytes("你的密鑰請設很長很亂"))
+				Encoding.UTF8.GetBytes(jwtKey)) //  使用正確的 jwtKey 變數
 		};
 	});
+
 
 // Add services to the container.
 builder.Services.AddCors(options =>

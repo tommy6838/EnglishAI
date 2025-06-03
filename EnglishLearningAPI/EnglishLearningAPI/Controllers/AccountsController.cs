@@ -98,13 +98,18 @@ namespace EnglishLearningAPI.Controllers
 				return Unauthorized("帳號或密碼錯誤。");
 
 			// 3. 登入成功，回傳資訊
-			return Ok(new { Message = "登入成功", user.Id, LogLevel = user.Level });
+			//return Ok(new { Message = "登入成功", user.Id, LogLevel = user.Level });
 
 			// 產生JWT Token
 			var token = GenerateJwtToken(user);
 
 			// 回傳token給前端
-			return Ok(new { token, user.Id, Level = user.Level });
+			return Ok(new
+			{
+				token, // JWT token
+				user.Id,
+				Level = user.Level
+			});
 		}
 
 		// ========== 產生JWT Token的方法 ==========

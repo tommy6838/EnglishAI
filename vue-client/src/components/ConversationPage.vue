@@ -97,13 +97,24 @@
 
 <script setup>
 import { ref, onMounted, watch, nextTick } from "vue";
-import axios from "axios";
+import api from "../utils/axios";
 import PopupWordTooltip from "./PopupWordTooltip.vue";
 import WordDetailSidebar from "./WordDetailSidebar.vue";
 
+import { useRouter } from "vue-router";
+
+//在 ConversationPage.vue 開頭加「token 判斷 + 防呆 redirect」
+const router = useRouter();
+
+// 🔒 如果沒登入就自動導回登入頁
+const token = localStorage.getItem("token");
+if (!token) {
+  router.push("/AuthPage");
+}
+
 const conversations = ref([]);
 const newQuestion = ref("");
-const currentUserId = "d4badf61-5181-48ce-86cd-7a99ba604997";
+// const currentUserId = "d4badf61-5181-48ce-86cd-7a99ba604997";
 const currentTopicId = 1;
 const scrollContainer = ref(null);
 
@@ -142,18 +153,15 @@ onMounted(async () => {
 });
 
 async function loadConversations() {
-  const res = await axios.get(
-    `http://localhost:5153/api/conversations?userId=${currentUserId}`
-  );
+  const res = await api.get("/conversations"); // ✅ 自動從 token 判斷身分
   conversations.value = res.data;
 }
 
 async function sendQuestion() {
   if (!newQuestion.value.trim()) return;
 
-  await axios.post("http://localhost:5153/api/conversations", {
-    userId: currentUserId,
-    topicId: currentTopicId,
+  await api.post("/conversations", {
+    topicId: currentTopicId, // ✅ userId 不再需要前端提供
     question: newQuestion.value,
   });
 

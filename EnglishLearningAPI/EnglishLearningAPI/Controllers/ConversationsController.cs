@@ -2,12 +2,14 @@
 using EnglishLearningAPI.DTOs;
 using EnglishLearningAPI.Models;
 using EnglishLearningAPI.Settings;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options; // 用來注入設定
 using OpenAI;
 using OpenAI.Chat;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace EnglishLearningAPI.Controllers
@@ -32,9 +34,12 @@ namespace EnglishLearningAPI.Controllers
 		}
 
 		// 新增對話紀錄 API
+		[Authorize]
 		[HttpPost]
 		public async Task<IActionResult> AddConversation([FromBody] ConversationCreateDto dto)
 		{
+			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
 			var messages = new List<ChatMessage>
 			{
 				new SystemChatMessage("你是AI英文助教，請回答英文學習相關問題。"),
@@ -46,7 +51,7 @@ namespace EnglishLearningAPI.Controllers
 
 			var conv = new Conversation
 			{
-				UserId = dto.UserId,
+				UserId = userId,
 				TopicId = dto.TopicId,
 				Question = dto.Question,
 				Answer = aiResponse,
@@ -59,9 +64,12 @@ namespace EnglishLearningAPI.Controllers
 		}
 
 		// 查詢對話紀錄 API
+		[Authorize]
 		[HttpGet]
-		public async Task<ActionResult<IEnumerable<Conversation>>> GetConversations(string userId)
+		public async Task<ActionResult<IEnumerable<Conversation>>> GetConversations()
 		{
+			var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
 			var convs = await _context.Conversations
 				.Where(c => c.UserId == userId)
 				.OrderByDescending(c => c.CreatedAt)
