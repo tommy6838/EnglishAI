@@ -1,6 +1,6 @@
 <script setup>
 import { useRouter } from "vue-router";
-import { ref } from "vue";
+import { ref, watch, onMounted, provide } from "vue"; // ✅ 多了 provide 切換中英文
 
 // router 導向
 const router = useRouter();
@@ -14,6 +14,24 @@ function logout() {
   token.value = null;
   router.push("/login");
 }
+
+// 語言切換邏輯
+const language = ref('en')
+
+// 從 localStorage 載入語言
+onMounted(() => {
+  const saved = localStorage.getItem('language')
+  if (saved) language.value = saved
+})
+
+// 每次切換時儲存
+watch(language, (newLang) => {
+  localStorage.setItem('language', newLang)
+})
+
+// ✅ 提供給所有子元件
+provide('language', language)
+
 </script>
 
 <template>
@@ -24,7 +42,16 @@ function logout() {
         class="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center"
       >
         <h1 class="text-2xl font-bold text-blue-600">AI 英文學習平台</h1>
-        <div class="space-x-4">
+        <div class="space-x-4 flex items-center">
+          <!-- 語言選擇器 -->
+          <select
+            v-model="language"
+            class="bg-white border border-gray-300 rounded px-2 py-1 text-sm text-gray-800"
+          >
+            <option value="en">EN</option>
+            <option value="zh">中文</option>
+          </select>
+
           <!-- 尚未登入顯示 -->
           <button
             v-if="!token"

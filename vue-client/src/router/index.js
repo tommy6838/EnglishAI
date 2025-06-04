@@ -10,24 +10,23 @@ import ChatPage from "../components/ChatPage.vue";
 import ConversationPage from "../components/ConversationPage.vue";
 
 const routes = [
-  { path: "/", component: HelloApi },
-  // { path: "/AuthPage", component: AuthPage },
+  { path: "/", component: HelloApi }, // ✅ 保留首頁
   { path: "/login", component: LoginPage },
   { path: "/register", component: RegisterPage },
-  { path: "/", redirect: "/login" },
   { path: "/TopicMenu", component: TopicMenu },
   { path: "/topics/:id", component: TopicDetail },
   {
     path: "/ChatPage",
     component: ChatPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true }, // 🔒 必須登入
   },
   {
     path: "/ConversationPage",
     component: ConversationPage,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true }, // 🔒 必須登入
   },
 ];
+
 
 const router = createRouter({
   history: createWebHistory(),
