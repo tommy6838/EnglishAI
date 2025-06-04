@@ -18,4 +18,10 @@ public partial class User
     public string? UserName { get; set; }
 
     public DateTime? RegisteredAt { get; set; }
+
+    public virtual ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
+
+    public virtual ICollection<FavoriteWord> FavoriteWords { get; set; } = new List<FavoriteWord>();
+
+    public virtual ICollection<WordHistory> WordHistories { get; set; } = new List<WordHistory>();
 }

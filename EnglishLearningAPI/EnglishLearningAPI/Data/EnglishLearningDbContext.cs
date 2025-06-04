@@ -2,17 +2,11 @@
 using System.Collections.Generic;
 using EnglishLearningAPI.Models;
 using Microsoft.EntityFrameworkCore;
-using System.ComponentModel.DataAnnotations.Schema;
-
 
 namespace EnglishLearningAPI.Data;
 
 public partial class EnglishLearningDbContext : DbContext
 {
-    public EnglishLearningDbContext()
-    {
-    }
-
     public EnglishLearningDbContext(DbContextOptions<EnglishLearningDbContext> options)
         : base(options)
     {
@@ -26,17 +20,14 @@ public partial class EnglishLearningDbContext : DbContext
 
     public virtual DbSet<User> Users { get; set; }
 
+    public virtual DbSet<WordDictionary> WordDictionaries { get; set; }
+
     public virtual DbSet<WordHistory> WordHistories { get; set; }
 
-	public DbSet<WordDictionary> WordDictionaries { get; set; }
+	public DbSet<InvalidWord> InvalidWords { get; set; }
 
 
-
-	protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Server=.\\SQLEXPRESS;Database=EnglishLearningDB;Trusted_Connection=True;TrustServerCertificate=True;");
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+	protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Conversation>(entity =>
         {
@@ -49,6 +40,11 @@ public partial class EnglishLearningDbContext : DbContext
                 .HasForeignKey(d => d.TopicId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Conversations_Topics");
+
+            entity.HasOne(d => d.User).WithMany(p => p.Conversations)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_Conversations_Users");
         });
 
         modelBuilder.Entity<FavoriteWord>(entity =>
@@ -58,6 +54,11 @@ public partial class EnglishLearningDbContext : DbContext
             entity.Property(e => e.FavoritedAt).HasDefaultValueSql("(getdate())");
             entity.Property(e => e.UserId).HasMaxLength(100);
             entity.Property(e => e.Word).HasMaxLength(100);
+
+            entity.HasOne(d => d.User).WithMany(p => p.FavoriteWords)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_FavoriteWords_Users");
         });
 
         modelBuilder.Entity<Topic>(entity =>
@@ -78,6 +79,22 @@ public partial class EnglishLearningDbContext : DbContext
             entity.Property(e => e.UserName).HasMaxLength(100);
         });
 
+        modelBuilder.Entity<WordDictionary>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK__WordDict__3214EC0745CE2F15");
+
+            entity.ToTable("WordDictionary");
+
+            entity.HasIndex(e => e.Word, "UQ__WordDict__95B501083059263D").IsUnique();
+
+            entity.Property(e => e.LastUpdated)
+                .HasDefaultValueSql("(getutcdate())")
+                .HasColumnType("datetime");
+            entity.Property(e => e.PartOfSpeech).HasMaxLength(100);
+            entity.Property(e => e.Phonetic).HasMaxLength(100);
+            entity.Property(e => e.Word).HasMaxLength(100);
+        });
+
         modelBuilder.Entity<WordHistory>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PK__WordHist__3214EC0759D0C90F");
@@ -89,6 +106,11 @@ public partial class EnglishLearningDbContext : DbContext
             entity.Property(e => e.LastViewedAt).HasDefaultValueSql("(getdate())");
             entity.Property(e => e.UserId).HasMaxLength(100);
             entity.Property(e => e.Word).HasMaxLength(100);
+
+            entity.HasOne(d => d.User).WithMany(p => p.WordHistories)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_WordHistory_Users");
         });
 
         OnModelCreatingPartial(modelBuilder);

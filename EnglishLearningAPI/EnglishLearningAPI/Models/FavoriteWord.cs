@@ -14,4 +14,6 @@ public partial class FavoriteWord
     public DateTime FavoritedAt { get; set; }
 
     public int ClickCount { get; set; }
+
+    public virtual User User { get; set; } = null!;
 }

@@ -16,4 +16,6 @@ public partial class WordHistory
     public DateTime FirstViewedAt { get; set; }
 
     public DateTime LastViewedAt { get; set; }
+
+    public virtual User User { get; set; } = null!;
 }
