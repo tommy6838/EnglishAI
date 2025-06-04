@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using EnglishLearningAPI.Models;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations.Schema;
+
 
 namespace EnglishLearningAPI.Data;
 
@@ -26,7 +28,11 @@ public partial class EnglishLearningDbContext : DbContext
 
     public virtual DbSet<WordHistory> WordHistories { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+	public DbSet<WordDictionary> WordDictionaries { get; set; }
+
+
+
+	protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
         => optionsBuilder.UseSqlServer("Server=.\\SQLEXPRESS;Database=EnglishLearningDB;Trusted_Connection=True;TrustServerCertificate=True;");
 

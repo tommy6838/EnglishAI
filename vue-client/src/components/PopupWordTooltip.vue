@@ -77,6 +77,8 @@
 import { ref, watch, computed, onUnmounted, nextTick } from "vue";
 import axios from "axios";
 import DictionaryService from "../services/DictionaryService";
+import api from "../utils/axios";
+import { wordCache } from "../utils/wordCache";
 
 const props = defineProps({
   word: String,
@@ -117,16 +119,48 @@ onUnmounted(() => stopDrag());
 const wordData = ref({});
 const loading = ref(false);
 
+function toQueryString(params) {
+  return Object.entries(params)
+    .map(([key, val]) =>
+      Array.isArray(val)
+        ? val.map(v => `${encodeURIComponent(key)}=${encodeURIComponent(v)}`).join("&")
+        : `${encodeURIComponent(key)}=${encodeURIComponent(val)}`
+    )
+    .join("&");
+}
+
 watch(
   () => props.word,
   async () => {
     if (!props.word) return;
+    const lowerWord = props.word.toLowerCase();
     loading.value = true;
     wordData.value = {};
     try {
-      const result = await DictionaryService.getWordData(props.word);
-      console.log("📘 最終 wordData：", result); // ←← 加這行！
-      if (result) wordData.value = result;
+      if (wordCache.has(lowerWord)) {
+        wordData.value = wordCache.get(lowerWord);
+      } else {
+        const dbRes = await api.get(`/WordDictionary/BulkCheck?${toQueryString({ words: [lowerWord] })}`);
+        if (dbRes.data.length > 0) {
+          wordData.value = dbRes.data[0];
+          wordCache.set(lowerWord, dbRes.data[0]);
+        } else {
+          const result = await DictionaryService.getWordData(lowerWord);
+          wordData.value = result;
+          wordCache.set(lowerWord, result);
+          await api.post("/WordDictionary/BulkInsert", [
+            {
+              word: result.word,
+              translation: result.translation || "",
+              example: result.example || "",
+              definition: result.definition || "",
+              partOfSpeech: result.partOfSpeech || "",
+              phonetic: result.phonetic || "",
+              exampleZh: result.exampleZh || ""
+            }
+          ]);
+        }
+      }
     } catch (err) {
       console.error("❌ Tooltip 取得字典資料失敗:", err);
     } finally {
@@ -169,6 +203,7 @@ async function addToFavorite(word) {
   alert(`✅ 已收藏 ${word}`);
 }
 </script>
+
 
 <style scoped>
 .cursor-move {

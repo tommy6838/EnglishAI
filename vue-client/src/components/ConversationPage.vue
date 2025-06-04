@@ -5,24 +5,12 @@
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-blue-600">AI 英文學習平台</h1>
         <div class="flex gap-2 items-center">
-          <!-- 模式切換 -->
-          <select
-            v-model="viewMode"
-            class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring focus:border-blue-400"
-          >
+          <select v-model="viewMode" class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring focus:border-blue-400">
             <option value="tooltip">Tooltip 模式</option>
             <option value="sidebar">Sidebar 模式</option>
           </select>
-          <!-- 語音選擇 -->
-          <select
-            v-model="selectedVoiceURI"
-            class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring focus:border-blue-400"
-          >
-            <option
-              v-for="voice in voices"
-              :key="voice.voiceURI"
-              :value="voice.voiceURI"
-            >
+          <select v-model="selectedVoiceURI" class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring focus:border-blue-400">
+            <option v-for="voice in voices" :key="voice.voiceURI" :value="voice.voiceURI">
               {{ voice.name }} ({{ voice.lang }})
             </option>
           </select>
@@ -31,50 +19,42 @@
 
       <h2 class="text-lg font-semibold mb-4 text-gray-700">我的對話紀錄</h2>
 
-      <!-- 對話區（修正為雙氣泡顯示） -->
-      <div
-        ref="scrollContainer"
-        class="h-[300px] overflow-y-auto space-y-4 border border-gray-200 p-4 rounded-lg bg-gray-50"
-      >
+      <!-- 對話區 -->
+      <div ref="scrollContainer" class="h-[300px] overflow-y-auto space-y-4 border border-gray-200 p-4 rounded-lg bg-gray-50">
         <div v-for="c in conversations" :key="c.id" class="space-y-2">
-          <!-- 使用者提問氣泡 -->
+          <!-- 使用者提問 -->
           <div class="flex justify-end">
-            <div
-              class="bg-blue-500 text-white px-4 py-2 rounded-xl max-w-[70%] shadow"
-            >
+            <div class="bg-blue-500 text-white px-4 py-2 rounded-xl max-w-[70%] shadow">
               <div class="text-xs text-blue-100 text-right mb-1">
                 {{ formatTimestamp(c.createdAt) }}
               </div>
-              <strong class="text-blue-100">你：</strong>
-              {{ c.question }}
+              <strong class="text-blue-100">你：</strong> {{ c.question }}
             </div>
           </div>
 
-          <!-- AI 回答氣泡 -->
+          <!-- AI 回答（單字與標點可視化 + 換行處理） -->
           <div class="flex justify-start">
-            <div
-              class="bg-white text-gray-800 px-4 py-2 rounded-xl max-w-[70%] shadow border border-gray-200"
-            >
+            <div class="bg-white text-gray-800 px-4 py-2 rounded-xl max-w-[70%] shadow border border-gray-200">
               <div class="text-xs text-gray-400 mb-1">
                 {{ formatTimestamp(c.createdAt) }}
               </div>
               <strong class="text-green-600">AI：</strong>
-              <span
-                class="inline-block mr-2"
-                v-for="(word, idx) in extractWords(
-                  displayedAnswers[c.id] || ''
-                )"
-                :key="idx"
-              >
-                <span
-                  @click="handleWordClick(word, $event)"
-                  class="text-blue-500 hover:underline cursor-pointer"
-                  title="點擊查看解釋"
-                >
-                  {{ word }}
-                </span>
+              <span class="ml-1 whitespace-pre-wrap">
+                <template v-for="(segment, segIndex) in getSegments(displayedAnswers[c.id] || '')" :key="segIndex">
+                  <span
+                    v-if="isWord(segment)"
+                    @click="handleWordClick(segment, $event)"
+                    class="text-blue-700 hover:underline cursor-pointer"
+                    title="點擊查看解釋"
+                  >
+                    {{ segment }}
+                  </span>
+                  <span v-else-if="segment === '\n'">
+                    <br />
+                  </span>
+                  <span v-else class="text-gray-500">{{ segment }}</span>
+                </template>
               </span>
-              <!-- 朗讀按鈕 -->
               <button
                 @click="playSpeech(displayedAnswers[c.id])"
                 class="ml-2 text-blue-500 hover:text-blue-700"
@@ -131,19 +111,28 @@ import api from "../utils/axios";
 import PopupWordTooltip from "./PopupWordTooltip.vue";
 import WordDetailSidebar from "./WordDetailSidebar.vue";
 import { useRouter } from "vue-router";
+import { wordCache } from "../utils/wordCache"; // ✅ 改為引用全域快取
+
+function toQueryString(params) {
+  return Object.entries(params)
+    .map(([key, val]) =>
+      Array.isArray(val)
+        ? val.map(v => `${encodeURIComponent(key)}=${encodeURIComponent(v)}`).join("&")
+        : `${encodeURIComponent(key)}=${encodeURIComponent(val)}`
+    )
+    .join("&");
+}
 
 const router = useRouter();
 const token = localStorage.getItem("token");
-if (!token) {
-  router.push("/AuthPage");
-}
+const userId = localStorage.getItem("userId");
+if (!token) router.push("/AuthPage");
 
 const conversations = ref([]);
 const displayedAnswers = ref({});
 const newQuestion = ref("");
 const currentTopicId = 1;
 const scrollContainer = ref(null);
-
 const tooltipVisible = ref(false);
 const sidebarVisible = ref(false);
 const selectedWord = ref("");
@@ -152,27 +141,14 @@ const viewMode = ref(localStorage.getItem("viewMode") || "tooltip");
 const voices = ref([]);
 const selectedVoiceURI = ref("");
 
-// 提供全域朗讀函式給其他元件使用
 function playSpeech(text) {
   if (!text) return;
-
-  // 保險載入語音
-  if (!voices.value.length) {
-    voices.value = speechSynthesis.getVoices();
-  }
-
+  if (!voices.value.length) voices.value = speechSynthesis.getVoices();
   const voice = voices.value.find((v) => v.voiceURI === selectedVoiceURI.value);
   const utter = new SpeechSynthesisUtterance(text);
   if (voice) utter.voice = voice;
-
-  // 解決 Chrome 無聲問題
-  if (speechSynthesis.speaking || speechSynthesis.pending) {
-    speechSynthesis.cancel();
-  }
-
-  setTimeout(() => {
-    speechSynthesis.speak(utter);
-  }, 100);
+  if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+  setTimeout(() => speechSynthesis.speak(utter), 100);
 }
 
 defineExpose({ playSpeech });
@@ -180,11 +156,51 @@ defineExpose({ playSpeech });
 onMounted(async () => {
   loadVoices();
   speechSynthesis.onvoiceschanged = loadVoices;
-
+  await preloadWordCache();
   await loadConversations();
   await nextTick();
   scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight;
 });
+
+async function preloadWordCache() {
+  if (!userId) return;
+  try {
+    const res = await api.get(`/WordCache/PreloadWords/${userId}`);
+    const preloadList = res.data;
+    if (!preloadList.length) return;
+
+    const checkRes = await api.get(`/WordDictionary/BulkCheck?${toQueryString({ words: preloadList })}`);
+    const existingWords = checkRes.data.map(w => w.word.toLowerCase());
+
+    for (const entry of checkRes.data) {
+      wordCache.set(entry.word.toLowerCase(), entry);
+    }
+
+    const toQuery = preloadList.filter(word => !existingWords.includes(word.toLowerCase()));
+    const newlyFetched = [];
+
+    for (const word of toQuery) {
+      try {
+        const dictRes = await api.get(`/dictionary?word=${word}`);
+        const entry = {
+          word: word,
+          translation: dictRes.data.translation || "",
+          example: dictRes.data.example || "",
+        };
+        wordCache.set(word.toLowerCase(), entry);
+        newlyFetched.push(entry);
+      } catch (e) {
+        console.warn("❌ 字典 API 查詢失敗：", word);
+      }
+    }
+
+    if (newlyFetched.length > 0) {
+      await api.post("/WordDictionary/BulkInsert", newlyFetched);
+    }
+  } catch (err) {
+    console.error("🚫 預查單字失敗：", err);
+  }
+}
 
 function loadVoices() {
   const loadedVoices = speechSynthesis.getVoices();
@@ -192,8 +208,7 @@ function loadVoices() {
     voices.value = loadedVoices;
     if (!selectedVoiceURI.value) {
       selectedVoiceURI.value =
-        loadedVoices.find((v) => v.lang.startsWith("en"))?.voiceURI ||
-        loadedVoices[0].voiceURI;
+        loadedVoices.find((v) => v.lang.startsWith("en"))?.voiceURI || loadedVoices[0].voiceURI;
     }
   }
 }
@@ -208,7 +223,6 @@ async function loadConversations() {
   for (const c of res.data) {
     displayedAnswers.value[c.id] = "";
     typeAnswerEffect(c.id, c.answer);
-    playSpeech(c.answer);
   }
 }
 
@@ -234,10 +248,12 @@ async function sendQuestion() {
   }
 }
 
-function extractWords(answer) {
-  return answer
-    ? answer.match(/\b[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*\b/g) || []
-    : [];
+function getSegments(text) {
+  return text.match(/\b[\w'-]+\b|\s+|[^\w\s]/g) || [];
+}
+
+function isWord(segment) {
+  return /^[\w'-]+$/.test(segment);
 }
 
 function handleWordClick(word, event) {
@@ -273,3 +289,10 @@ function typeAnswerEffect(id, fullText) {
   }, 15);
 }
 </script>
+
+
+<style scoped>
+.conversation-page {
+  padding: 1rem;
+}
+</style>
