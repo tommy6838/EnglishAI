@@ -88,20 +88,20 @@ const DictionaryService = {
     try {
       const url = `http://localhost:5153/api/WordDictionary/Ensure?word=${word}`;
       const res = await axios.get(url);
-      const data = res.data;
+      const data = res.data; // ✅ 你之前少了這行
 
       return {
         word: data.word,
         phonetic: data.phonetic || "",
-        audio: "", // 如果你後端也存 audio，可加
+        audio: "", // optional
         partOfSpeech: data.partOfSpeech || "",
         definition: data.definition || "",
         translation: data.translation || "",
         example: data.example || "",
-        exampleZh: data.exampleZh || "", // 若你有存中文例句
+        exampleZh: data.exampleZh || "",
       };
     } catch (err) {
-      console.error("❌ 從 WordDictionaryController 查詢失敗:", err);
+      console.error("❌ 從 WordDictionary 查詢失敗:", err);
       return null;
     }
   },

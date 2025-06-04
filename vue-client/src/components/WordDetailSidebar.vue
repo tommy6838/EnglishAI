@@ -16,9 +16,15 @@
       </div>
 
       <div v-else-if="wordData.word">
-        <p class="text-sm text-gray-600 italic mb-1">
-          ({{ wordData.partOfSpeech }})
-          <span class="text-gray-500">/{{ wordData.phonetic }}/</span>
+        <!-- 單字 -->
+        <h2 class="text-xl font-bold text-blue-600 mb-2">
+          🔤 {{ wordData.word }}
+        </h2>
+
+        <!-- 詞性與音標 -->
+        <p class="text-sm text-purple-600 font-semibold mb-1">
+          {{ wordData.partOfSpeech }}
+          <span class="text-gray-500 italic"> {{ wordData.phonetic }} </span>
           <button
             @click="speak(wordData.word)"
             class="ml-2 text-blue-500 hover:text-blue-700"
@@ -26,15 +32,26 @@
             🔊
           </button>
         </p>
-        <p class="text-sm text-gray-800 mb-2">
+
+        <!-- 中文翻譯 -->
+        <p class="text-sm text-green-600 font-medium mb-2">
           🌏 中文翻譯：{{ wordData.translation }}
         </p>
-        <p class="text-sm text-gray-500 italic mb-1">
-          📄 {{ wordData.definition }}
+
+        <!-- 英文定義 -->
+        <!-- 📄 英文定義 + 語意分類 + Tooltip -->
+        <p v-if="wordData.definition" class="text-sm text-gray-700 mb-1">
+          📄
+          <span class="text-yellow-600 font-semibold">[其他解釋]</span>
+          {{ wordData.definition }}
         </p>
-        <p class="text-sm text-gray-500 italic mb-4">
-          📘 {{ wordData.example
-          }}<span v-if="wordData.exampleZh">（{{ wordData.exampleZh }}）</span>
+
+        <!-- 英文例句與中文翻譯 -->
+        <p v-if="wordData.example" class="text-sm text-gray-600 italic mb-4">
+          📘 {{ wordData.example }}
+          <span v-if="wordData.exampleZh" class="text-gray-500"
+            >（{{ wordData.exampleZh }}）</span
+          >
           <button
             @click="speak(wordData.example)"
             class="ml-2 text-blue-500 hover:text-blue-700"
@@ -42,6 +59,8 @@
             🗣️
           </button>
         </p>
+
+        <!-- 收藏按鈕 -->
         <button
           @click.stop="addToFavorite(wordData.word)"
           class="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded"
@@ -58,12 +77,14 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, defineProps, defineEmits } from "vue";
+import { ref, watch, onMounted, nextTick, defineProps, defineEmits } from "vue";
 import api from "../utils/axios";
 import PopupWordTooltip from "./PopupWordTooltip.vue";
 import WordDetailSidebar from "./WordDetailSidebar.vue";
 import { useRouter } from "vue-router";
 import { wordCache } from "../utils/wordCache"; // ✅ 改為引用全域快取
+import DictionaryService from "../services/DictionaryService";
+import { computed } from "vue";
 
 const props = defineProps({
   visible: Boolean,
@@ -72,7 +93,7 @@ const props = defineProps({
 });
 const emit = defineEmits(["close"]);
 
-const wordData = ref(null);
+const wordData = ref({});
 const loading = ref(false);
 
 watch(
@@ -80,37 +101,69 @@ watch(
   async (newWord) => {
     if (!newWord) return;
     loading.value = true;
-    wordData.value = null;
-    const result = await DictionaryService.getWordData(newWord);
-    wordData.value = result;
-    loading.value = false;
+    wordData.value = {};
+
+    const lowerWord = newWord.toLowerCase();
+
+    try {
+      // 先從資料庫查
+      const dbRes = await api.get(
+        `/WordDictionary/BulkCheck?words=${lowerWord}`
+      );
+
+      if (dbRes.data.length > 0) {
+        const raw = dbRes.data[0];
+
+        // 如果 definition 或 example 為 null，要補抓 API
+        const needUpdate = !raw.definition || !raw.example;
+
+        if (needUpdate) {
+          const apiRes = await DictionaryService.getWordData(lowerWord);
+
+          // 用 API 補齊空值
+          const updated = {
+            word: lowerWord,
+            translation: raw.translation || apiRes.translation || "",
+            example: raw.example || apiRes.example || "",
+            definition: raw.definition || apiRes.definition || "",
+            partOfSpeech: raw.partOfSpeech || apiRes.partOfSpeech || "",
+            phonetic: raw.phonetic || apiRes.phonetic || "",
+            exampleZh: raw.exampleZh || apiRes.exampleZh || "",
+          };
+
+          // 自動更新到資料庫
+          await api.post("/WordDictionary/BulkInsert", [updated]);
+          wordData.value = updated;
+        } else {
+          wordData.value = raw;
+        }
+      } else {
+        // 若資料庫查不到，直接查 API
+        const result = await DictionaryService.getWordData(lowerWord);
+        wordData.value = result || { word: newWord };
+
+        // 存入資料庫
+        await api.post("/WordDictionary/BulkInsert", [
+          {
+            word: result.word,
+            translation: result.translation || "",
+            example: result.example || "",
+            definition: result.definition || "",
+            partOfSpeech: result.partOfSpeech || "",
+            phonetic: result.phonetic || "",
+            exampleZh: result.exampleZh || "",
+          },
+        ]);
+      }
+    } catch (err) {
+      console.error("❌ WordDetailSidebar 查詢失敗:", err);
+      wordData.value = { word: newWord }; // 保底填入
+    } finally {
+      loading.value = false;
+    }
   },
   { immediate: true }
 );
-
-function speak(text) {
-  if (!text) return;
-  const synth = window.speechSynthesis;
-  const utter = new SpeechSynthesisUtterance(text);
-  const voice = synth.getVoices().find((v) => v.voiceURI === props.voiceUri);
-  if (voice) utter.voice = voice;
-  synth.cancel();
-  setTimeout(() => synth.speak(utter), 100);
-}
-
-async function addToFavorite(word) {
-  try {
-    await api.post("/FavoriteWords", { word });
-    alert(`❤️ 已加入收藏：${word}`);
-  } catch (err) {
-    console.error("加入收藏失敗", err);
-    alert("⚠️ 加入收藏失敗");
-  }
-}
-
-function close() {
-  emit("close");
-}
 
 function toQueryString(params) {
   return Object.entries(params)
@@ -123,6 +176,24 @@ function toQueryString(params) {
     )
     .join("&");
 }
+
+// 判斷語意分類
+
+// 判斷是否為常見第一解釋（例如是否和字面意思相關）
+
+// 提供 tooltip 顯示說明
+const meaningTagTooltip = computed(() => {
+  switch (meaningTag.value) {
+    case "體育術語":
+      return "這是用在撞球、保齡球等運動中的『旋轉』技巧";
+    case "語言":
+      return "這是英文語言本身的意思";
+    case "教學用語":
+      return "這是指『例子』、用來說明或教學";
+    default:
+      return "";
+  }
+});
 
 const router = useRouter();
 const token = localStorage.getItem("token");
@@ -161,7 +232,9 @@ onMounted(async () => {
   await preloadWordCache();
   await loadConversations();
   await nextTick();
-  scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight;
+  if (scrollContainer.value) {
+    scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight;
+  }
 });
 
 async function preloadWordCache() {
@@ -242,7 +315,7 @@ async function sendQuestion() {
     });
     await loadConversations();
     newQuestion.value = "";
-    await nextTick();
+    await nextTick(); // ✅ 等待 DOM 更新完成
     if (scrollContainer.value) {
       scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight;
     }

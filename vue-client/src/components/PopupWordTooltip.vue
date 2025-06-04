@@ -28,9 +28,9 @@
           <span class="text-sm text-white bg-indigo-500 px-2 py-0.5 rounded">
             {{ wordData.partOfSpeech }}
           </span>
-          <span class="text-sm text-gray-600 italic"
-            >/{{ wordData.phonetic }}/</span
-          >
+          <span class="text-sm text-gray-600 italic">
+            /{{ wordData.phonetic }}/
+          </span>
           <button
             @click="speak(wordData.word)"
             class="text-blue-500 hover:text-blue-700 text-lg"
@@ -43,8 +43,10 @@
           🌏 中文翻譯：{{ wordData.translation }}
         </p>
 
-        <p class="text-sm text-gray-500 italic mb-1">
-          📄 {{ wordData.definition }}
+        <!-- 📄 定義（含[第二解釋]提示） -->
+        <p v-if="wordData.definition" class="text-sm text-gray-500 italic mb-1">
+          📄 <span class="text-yellow-600 font-semibold">[第二解釋]</span>
+          {{ wordData.definition }}
         </p>
 
         <p class="text-sm text-gray-500 italic mb-4">
@@ -123,7 +125,9 @@ function toQueryString(params) {
   return Object.entries(params)
     .map(([key, val]) =>
       Array.isArray(val)
-        ? val.map(v => `${encodeURIComponent(key)}=${encodeURIComponent(v)}`).join("&")
+        ? val
+            .map((v) => `${encodeURIComponent(key)}=${encodeURIComponent(v)}`)
+            .join("&")
         : `${encodeURIComponent(key)}=${encodeURIComponent(val)}`
     )
     .join("&");
@@ -140,7 +144,9 @@ watch(
       if (wordCache.has(lowerWord)) {
         wordData.value = wordCache.get(lowerWord);
       } else {
-        const dbRes = await api.get(`/WordDictionary/BulkCheck?${toQueryString({ words: [lowerWord] })}`);
+        const dbRes = await api.get(
+          `/WordDictionary/BulkCheck?${toQueryString({ words: [lowerWord] })}`
+        );
         if (dbRes.data.length > 0) {
           wordData.value = dbRes.data[0];
           wordCache.set(lowerWord, dbRes.data[0]);
@@ -156,8 +162,8 @@ watch(
               definition: result.definition || "",
               partOfSpeech: result.partOfSpeech || "",
               phonetic: result.phonetic || "",
-              exampleZh: result.exampleZh || ""
-            }
+              exampleZh: result.exampleZh || "",
+            },
           ]);
         }
       }
@@ -171,16 +177,6 @@ watch(
   },
   { immediate: true }
 );
-
-const tooltipStyle = computed(() => {
-  return props.position
-    ? {
-        top: `${props.position.y}px`,
-        left: `${props.position.x}px`,
-        position: "absolute",
-      }
-    : {};
-});
 
 function close() {
   emit("close");
@@ -203,7 +199,6 @@ async function addToFavorite(word) {
   alert(`✅ 已收藏 ${word}`);
 }
 </script>
-
 
 <style scoped>
 .cursor-move {
