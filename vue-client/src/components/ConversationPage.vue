@@ -5,12 +5,22 @@
       <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-blue-600">AI 英文學習平台</h1>
         <div class="flex gap-2 items-center">
-          <select v-model="viewMode" class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring focus:border-blue-400">
+          <select
+            v-model="viewMode"
+            class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring focus:border-blue-400"
+          >
             <option value="tooltip">Tooltip 模式</option>
             <option value="sidebar">Sidebar 模式</option>
           </select>
-          <select v-model="selectedVoiceURI" class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring focus:border-blue-400">
-            <option v-for="voice in voices" :key="voice.voiceURI" :value="voice.voiceURI">
+          <select
+            v-model="selectedVoiceURI"
+            class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring focus:border-blue-400"
+          >
+            <option
+              v-for="voice in voices"
+              :key="voice.voiceURI"
+              :value="voice.voiceURI"
+            >
               {{ voice.name }} ({{ voice.lang }})
             </option>
           </select>
@@ -20,11 +30,16 @@
       <h2 class="text-lg font-semibold mb-4 text-gray-700">我的對話紀錄</h2>
 
       <!-- 對話區 -->
-      <div ref="scrollContainer" class="h-[300px] overflow-y-auto space-y-4 border border-gray-200 p-4 rounded-lg bg-gray-50">
+      <div
+        ref="scrollContainer"
+        class="h-[300px] overflow-y-auto space-y-4 border border-gray-200 p-4 rounded-lg bg-gray-50"
+      >
         <div v-for="c in conversations" :key="c.id" class="space-y-2">
           <!-- 使用者提問 -->
           <div class="flex justify-end">
-            <div class="bg-blue-500 text-white px-4 py-2 rounded-xl max-w-[70%] shadow">
+            <div
+              class="bg-blue-500 text-white px-4 py-2 rounded-xl max-w-[70%] shadow"
+            >
               <div class="text-xs text-blue-100 text-right mb-1">
                 {{ formatTimestamp(c.createdAt) }}
               </div>
@@ -34,13 +49,20 @@
 
           <!-- AI 回答（單字與標點可視化 + 換行處理） -->
           <div class="flex justify-start">
-            <div class="bg-white text-gray-800 px-4 py-2 rounded-xl max-w-[70%] shadow border border-gray-200">
+            <div
+              class="bg-white text-gray-800 px-4 py-2 rounded-xl max-w-[70%] shadow border border-gray-200"
+            >
               <div class="text-xs text-gray-400 mb-1">
                 {{ formatTimestamp(c.createdAt) }}
               </div>
               <strong class="text-green-600">AI：</strong>
               <span class="ml-1 whitespace-pre-wrap">
-                <template v-for="(segment, segIndex) in getSegments(displayedAnswers[c.id] || '')" :key="segIndex">
+                <template
+                  v-for="(segment, segIndex) in getSegments(
+                    displayedAnswers[c.id] || ''
+                  )"
+                  :key="segIndex"
+                >
                   <span
                     v-if="isWord(segment)"
                     @click="handleWordClick(segment, $event)"
@@ -111,16 +133,51 @@ import api from "../utils/axios";
 import PopupWordTooltip from "./PopupWordTooltip.vue";
 import WordDetailSidebar from "./WordDetailSidebar.vue";
 import { useRouter } from "vue-router";
-import { wordCache } from "../utils/wordCache"; // ✅ 改為引用全域快取
+import { wordCache } from "../utils/wordCache";
+import DictionaryService from "../services/DictionaryService";
+
+// 載入無效單字清單
+const invalidWords = ref(new Set());
+
+async function loadInvalidWords() {
+  try {
+    const res = await api.get("/WordDictionary/Invalid");
+    invalidWords.value = new Set(res.data.map((w) => w.toLowerCase()));
+    console.log("🚫 無效單字載入完成", invalidWords.value);
+  } catch (err) {
+    console.warn("⚠️ 載入 InvalidWords 失敗", err);
+  }
+}
 
 function toQueryString(params) {
   return Object.entries(params)
     .map(([key, val]) =>
       Array.isArray(val)
-        ? val.map(v => `${encodeURIComponent(key)}=${encodeURIComponent(v)}`).join("&")
+        ? val
+            .map((v) => `${encodeURIComponent(key)}=${encodeURIComponent(v)}`)
+            .join("&")
         : `${encodeURIComponent(key)}=${encodeURIComponent(val)}`
     )
     .join("&");
+}
+
+const stopWords = new Set([
+  "the",
+  "and",
+  "is",
+  "are",
+  "to",
+  "for",
+  "of",
+  "in",
+  "on",
+  "at",
+  "a",
+  "an",
+]);
+
+function isValidEnglishWord(word) {
+  return /^[a-zA-Z]+$/.test(word) && !stopWords.has(word.toLowerCase());
 }
 
 const router = useRouter();
@@ -147,7 +204,8 @@ function playSpeech(text) {
   const voice = voices.value.find((v) => v.voiceURI === selectedVoiceURI.value);
   const utter = new SpeechSynthesisUtterance(text);
   if (voice) utter.voice = voice;
-  if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+  if (speechSynthesis.speaking || speechSynthesis.pending)
+    speechSynthesis.cancel();
   setTimeout(() => speechSynthesis.speak(utter), 100);
 }
 
@@ -156,6 +214,7 @@ defineExpose({ playSpeech });
 onMounted(async () => {
   loadVoices();
   speechSynthesis.onvoiceschanged = loadVoices;
+  await loadInvalidWords();
   await preloadWordCache();
   await loadConversations();
   await nextTick();
@@ -166,26 +225,35 @@ async function preloadWordCache() {
   if (!userId) return;
   try {
     const res = await api.get(`/WordCache/PreloadWords/${userId}`);
-    const preloadList = res.data;
+    const preloadList = res.data
+      .filter(isValidEnglishWord)
+      .filter((word) => !invalidWords.value.has(word.toLowerCase()));
     if (!preloadList.length) return;
 
-    const checkRes = await api.get(`/WordDictionary/BulkCheck?${toQueryString({ words: preloadList })}`);
-    const existingWords = checkRes.data.map(w => w.word.toLowerCase());
+    const wordsToQuery = preloadList
+      .filter((w) => typeof w === "string" && w.trim().length > 0)
+      .map((w) => `words=${encodeURIComponent(w.trim().toLowerCase())}`);
+    const queryString = wordsToQuery.join("&");
+
+    const checkRes = await api.get(`/WordDictionary/BulkCheck?${queryString}`);
+    const existingWords = checkRes.data.map((w) => w.word.toLowerCase());
 
     for (const entry of checkRes.data) {
       wordCache.set(entry.word.toLowerCase(), entry);
     }
 
-    const toQuery = preloadList.filter(word => !existingWords.includes(word.toLowerCase()));
+    const toQuery = preloadList.filter(
+      (word) => !existingWords.includes(word.toLowerCase())
+    );
     const newlyFetched = [];
 
     for (const word of toQuery) {
       try {
-        const dictRes = await api.get(`/dictionary?word=${word}`);
+        const dictRes = await DictionaryService.getWordData(word);
         const entry = {
           word: word,
-          translation: dictRes.data.translation || "",
-          example: dictRes.data.example || "",
+          translation: dictRes.translation || "",
+          example: dictRes.example || "",
         };
         wordCache.set(word.toLowerCase(), entry);
         newlyFetched.push(entry);
@@ -208,7 +276,8 @@ function loadVoices() {
     voices.value = loadedVoices;
     if (!selectedVoiceURI.value) {
       selectedVoiceURI.value =
-        loadedVoices.find((v) => v.lang.startsWith("en"))?.voiceURI || loadedVoices[0].voiceURI;
+        loadedVoices.find((v) => v.lang.startsWith("en"))?.voiceURI ||
+        loadedVoices[0].voiceURI;
     }
   }
 }
@@ -220,9 +289,63 @@ function formatTimestamp(ts) {
 async function loadConversations() {
   const res = await api.get("/conversations");
   conversations.value = res.data;
+
+  const allAnswers = res.data.map((c) => c.answer || "").join(" ");
+  const allWords = Array.from(
+    new Set(allAnswers.match(/\b[\w'-]+\b/g)?.map((w) => w.toLowerCase()))
+  )
+    .filter(isValidEnglishWord)
+    .filter((w) => !invalidWords.value.has(w.toLowerCase()));
+
+  await preloadFromAnswers(allWords);
+
   for (const c of res.data) {
     displayedAnswers.value[c.id] = "";
     typeAnswerEffect(c.id, c.answer);
+  }
+}
+
+async function preloadFromAnswers(words) {
+  if (!words?.length) return;
+
+  try {
+    const validWords = words
+      .filter(isValidEnglishWord)
+      .filter((w) => !invalidWords.value.has(w.toLowerCase()));
+
+    const wordsToQuery = validWords
+      .filter((w) => typeof w === "string" && w.trim().length > 0)
+      .map((w) => `words=${encodeURIComponent(w.trim().toLowerCase())}`);
+    const queryString = wordsToQuery.join("&");
+
+    const checkRes = await api.get(`/WordDictionary/BulkCheck?${queryString}`);
+    const existing = checkRes.data.map((w) => w.word.toLowerCase());
+
+    const toQuery = validWords.filter(
+      (w) => !existing.includes(w.toLowerCase())
+    );
+    const toInsert = [];
+
+    for (const word of toQuery) {
+      try {
+        const res = await DictionaryService.getWordData(word);
+        const entry = {
+          word: word,
+          translation: res.translation || "",
+          example: res.example || "",
+        };
+        wordCache.set(word, entry);
+        toInsert.push(entry);
+      } catch (e) {
+        console.warn("❌ 無法查詢單字：", word);
+      }
+    }
+
+    if (toInsert.length > 0) {
+      await api.post("/WordDictionary/BulkInsert", toInsert);
+    }
+  } catch (err) {
+    console.error("🚨 預查 AI 回答單字失敗：", err);
   }
 }
 
@@ -289,10 +412,3 @@ function typeAnswerEffect(id, fullText) {
   }, 15);
 }
 </script>
-
-
-<style scoped>
-.conversation-page {
-  padding: 1rem;
-}
-</style>

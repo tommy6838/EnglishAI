@@ -33,7 +33,8 @@
           📄 {{ wordData.definition }}
         </p>
         <p class="text-sm text-gray-500 italic mb-4">
-          📘 {{ wordData.example }}<span v-if="wordData.exampleZh">（{{ wordData.exampleZh }}）</span>
+          📘 {{ wordData.example
+          }}<span v-if="wordData.exampleZh">（{{ wordData.exampleZh }}）</span>
           <button
             @click="speak(wordData.example)"
             class="ml-2 text-blue-500 hover:text-blue-700"
@@ -57,18 +58,67 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from "vue";
+import { ref, watch, onMounted, defineProps, defineEmits } from "vue";
 import api from "../utils/axios";
 import PopupWordTooltip from "./PopupWordTooltip.vue";
 import WordDetailSidebar from "./WordDetailSidebar.vue";
 import { useRouter } from "vue-router";
 import { wordCache } from "../utils/wordCache"; // ✅ 改為引用全域快取
 
+const props = defineProps({
+  visible: Boolean,
+  word: String,
+  voiceUri: String,
+});
+const emit = defineEmits(["close"]);
+
+const wordData = ref(null);
+const loading = ref(false);
+
+watch(
+  () => props.word,
+  async (newWord) => {
+    if (!newWord) return;
+    loading.value = true;
+    wordData.value = null;
+    const result = await DictionaryService.getWordData(newWord);
+    wordData.value = result;
+    loading.value = false;
+  },
+  { immediate: true }
+);
+
+function speak(text) {
+  if (!text) return;
+  const synth = window.speechSynthesis;
+  const utter = new SpeechSynthesisUtterance(text);
+  const voice = synth.getVoices().find((v) => v.voiceURI === props.voiceUri);
+  if (voice) utter.voice = voice;
+  synth.cancel();
+  setTimeout(() => synth.speak(utter), 100);
+}
+
+async function addToFavorite(word) {
+  try {
+    await api.post("/FavoriteWords", { word });
+    alert(`❤️ 已加入收藏：${word}`);
+  } catch (err) {
+    console.error("加入收藏失敗", err);
+    alert("⚠️ 加入收藏失敗");
+  }
+}
+
+function close() {
+  emit("close");
+}
+
 function toQueryString(params) {
   return Object.entries(params)
     .map(([key, val]) =>
       Array.isArray(val)
-        ? val.map(v => `${encodeURIComponent(key)}=${encodeURIComponent(v)}`).join("&")
+        ? val
+            .map((v) => `${encodeURIComponent(key)}=${encodeURIComponent(v)}`)
+            .join("&")
         : `${encodeURIComponent(key)}=${encodeURIComponent(val)}`
     )
     .join("&");
@@ -98,7 +148,8 @@ function playSpeech(text) {
   const voice = voices.value.find((v) => v.voiceURI === selectedVoiceURI.value);
   const utter = new SpeechSynthesisUtterance(text);
   if (voice) utter.voice = voice;
-  if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+  if (speechSynthesis.speaking || speechSynthesis.pending)
+    speechSynthesis.cancel();
   setTimeout(() => speechSynthesis.speak(utter), 100);
 }
 
@@ -120,14 +171,18 @@ async function preloadWordCache() {
     const preloadList = res.data;
     if (!preloadList.length) return;
 
-    const checkRes = await api.get(`/WordDictionary/BulkCheck?${toQueryString({ words: preloadList })}`);
-    const existingWords = checkRes.data.map(w => w.word.toLowerCase());
+    const checkRes = await api.get(
+      `/WordDictionary/BulkCheck?${toQueryString({ words: preloadList })}`
+    );
+    const existingWords = checkRes.data.map((w) => w.word.toLowerCase());
 
     for (const entry of checkRes.data) {
       wordCache.set(entry.word.toLowerCase(), entry);
     }
 
-    const toQuery = preloadList.filter(word => !existingWords.includes(word.toLowerCase()));
+    const toQuery = preloadList.filter(
+      (word) => !existingWords.includes(word.toLowerCase())
+    );
     const newlyFetched = [];
 
     for (const word of toQuery) {
@@ -159,7 +214,8 @@ function loadVoices() {
     voices.value = loadedVoices;
     if (!selectedVoiceURI.value) {
       selectedVoiceURI.value =
-        loadedVoices.find((v) => v.lang.startsWith("en"))?.voiceURI || loadedVoices[0].voiceURI;
+        loadedVoices.find((v) => v.lang.startsWith("en"))?.voiceURI ||
+        loadedVoices[0].voiceURI;
     }
   }
 }
@@ -187,7 +243,9 @@ async function sendQuestion() {
     await loadConversations();
     newQuestion.value = "";
     await nextTick();
-    scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight;
+    if (scrollContainer.value) {
+      scrollContainer.value.scrollTop = scrollContainer.value.scrollHeight;
+    }
   } catch (err) {
     const serverError = err.response?.data;
     if (serverError?.errors) {

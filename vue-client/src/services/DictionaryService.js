@@ -86,17 +86,22 @@ const DictionaryService = {
    */
   async getWordData(word) {
     try {
-      const english = await this.getEnglishDefinition(word);
-      if (!english) return null;
-      const chinese = await this.getChineseTranslation(word);
+      const url = `http://localhost:5153/api/WordDictionary/Ensure?word=${word}`;
+      const res = await axios.get(url);
+      const data = res.data;
 
       return {
-        ...english,
-        translation: chinese.translation,
-        exampleZh: chinese.exampleTranslation,
+        word: data.word,
+        phonetic: data.phonetic || "",
+        audio: "", // 如果你後端也存 audio，可加
+        partOfSpeech: data.partOfSpeech || "",
+        definition: data.definition || "",
+        translation: data.translation || "",
+        example: data.example || "",
+        exampleZh: data.exampleZh || "", // 若你有存中文例句
       };
     } catch (err) {
-      console.error("❌ 綜合查詢失敗:", err);
+      console.error("❌ 從 WordDictionaryController 查詢失敗:", err);
       return null;
     }
   },
